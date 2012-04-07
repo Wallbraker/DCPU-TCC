@@ -477,6 +477,8 @@ typedef struct ASMOperand {
 struct TCCState {
     unsigned output_type    : 8;
     unsigned reloc_output   : 1;
+
+    unsigned gen_asm        : 1;
  
     BufferedFile **include_stack_ptr;
     int *ifdef_stack_ptr;

@@ -65,6 +65,8 @@ static void help(void)
            "  -llib       link with dynamic or static library 'lib'\n"
            "  -pthread    link with -lpthread and -D_REENTRANT (POSIX Linux)\n"
            "  -shared     generate a shared library\n"
+           "  -S          generate assembly (ie. not binary) output.\n"
+           "              use in conjunction with -Wl,--oformat,binary.\n"
            "  -soname     set name for shared library to be used at runtime\n"
            "  -static     static linking\n"
            "  -rdynamic   export all global symbols to dynamic linker\n"
@@ -108,6 +110,7 @@ enum {
     TCC_OPTION_o,
     TCC_OPTION_r,
     TCC_OPTION_s,
+    TCC_OPTION_S,
     TCC_OPTION_Wl,
     TCC_OPTION_W,
     TCC_OPTION_O,
@@ -159,6 +162,7 @@ static const TCCOption tcc_options[] = {
     { "rdynamic", TCC_OPTION_rdynamic, 0 },
     { "r", TCC_OPTION_r, 0 },
     { "s", TCC_OPTION_s, 0 },
+    { "S", TCC_OPTION_S, 0 },
     { "Wl,", TCC_OPTION_Wl, TCC_OPTION_HAS_ARG | TCC_OPTION_NOSEP },
     { "W", TCC_OPTION_W, TCC_OPTION_HAS_ARG | TCC_OPTION_NOSEP },
     { "O", TCC_OPTION_O, TCC_OPTION_HAS_ARG | TCC_OPTION_NOSEP },
@@ -379,6 +383,9 @@ static int parse_args(TCCState *s, int argc, char **argv)
             case TCC_OPTION_c:
                 multiple_files = 1;
                 output_type = TCC_OUTPUT_OBJ;
+                break;
+            case TCC_OPTION_S:
+                s->gen_asm = 1;
                 break;
             case TCC_OPTION_static:
                 s->static_link = 1;

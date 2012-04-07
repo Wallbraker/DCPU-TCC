@@ -1023,6 +1023,9 @@ LIBTCCAPI TCCState *tcc_new(void)
 #ifdef TCC_TARGET_I386
     s->seg_size = 32;
 #endif
+
+    s->gen_asm = 0;
+
     return s;
 }
 
