@@ -437,6 +437,7 @@ ST_FUNC void load(int r, SValue *sv)
 {
     Log("%s: %i %p (%i, %i, %i)", __func__, r, sv, sv->r, sv->type.t, sv->c.ul);
 
+    bool pure_indirect;        // SET r, [sv]
     int regf = sv->r;          // flags & register
     int type_def = sv->type.t; // type definition 
     int addr = sv->c.ul;       // address
@@ -467,23 +468,32 @@ ST_FUNC void load(int r, SValue *sv)
         } else if (v == VT_JMPI) {
             UNSUPPORTED("loading from VT_LVAL not supported (v == VT_JMPI)");
         } else if (v < VT_CONST) {
-            UNSUPPORTED("loading from VT_LVAL not supported (v < VT_CONST)");
+            // SET r, [v]
+            pure_indirect = true;
         }
 
         int val_type = type_def & VT_TYPE;
 
-        if (val_type == VT_INT || val_type == (VT_INT | VT_UNSIGNED) ||
-            val_type == VT_SHORT || val_type == (VT_SHORT | VT_UNSIGNED) ||
-            val_type == VT_BYTE || val_type == (VT_BYTE | VT_UNSIGNED) ||
-            val_type == VT_PTR) {
+        if (!(val_type == VT_INT || val_type == (VT_INT | VT_UNSIGNED) ||
+              val_type == VT_SHORT || val_type == (VT_SHORT | VT_UNSIGNED) ||
+              val_type == VT_BYTE || val_type == (VT_BYTE | VT_UNSIGNED) ||
+              val_type == VT_PTR)) {
+            UNSUPPORTED("unsupported format to load from (%u)", val_type);
+        }
 
+        if (pure_indirect) {
+
+            // SET r, [v]
+            emit_ins(SET, DV_A+r, 0, DV_REFBASE + v, 0);
+
+        } else {
+
+            // SET r, [SP + addr]
             if (addr >= 0)
                 addr = addr / 2 + 1; // Turn into stack reference.
             else
                 addr = addr / 2;
             emit_read_stack(addr, DV_A + r);
-        } else {
-            UNSUPPORTED("loading from VT_LVAL not supported (none of the above, %d)", val_type);
         }
     } else {
         if (v == VT_CONST) {
