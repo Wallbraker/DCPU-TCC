@@ -318,6 +318,25 @@ void emit_read_stack(int offset, int reg)
     emit_ins(SET, reg, 0, DV_REF_REG_NEXTWORD_BASE + DV_J, offset);
 }
 
+
+/*
+    Emits code that writes to SP + offset from any GP
+    register except J (DV_A-DV_I, 0-6).
+*/
+
+void emit_write_stack(int offset, int reg)
+{
+    // SET J, SP
+    emit_ins(SET, DV_J, 0, DV_SP, 0);
+
+    if (offset < SHRT_MIN || offset > SHRT_MAX)
+        tcc_error("ICE: stack access out of bounds!");
+
+    // SET reg, [J+offset]
+    emit_ins(SET, DV_REF_REG_NEXTWORD_BASE + DV_J, offset, reg, 0);
+}
+
+
 /*
     Helper function to emit simple arithmatical
     opcodes on the form "a = a 'op' b". Handles
@@ -517,6 +536,51 @@ ST_FUNC void load(int r, SValue *sv)
         } else {
             UNSUPPORTED("uncought case in load");
         }
+    }
+}
+
+
+/*
+    Store register 'r' in lvalue 'sv'
+*/
+
+ST_FUNC void store(int r, SValue *sv)
+{
+    Log("%s: %u %p", __func__, r, sv);
+
+    int regf = sv->r;                  // flags & register
+    int addr = sv->c.ul;               // address
+    int type_def = sv->type.t;         // type definition
+    int val_type = type_def & VT_TYPE; // with out storage and modifier
+    int v = regf & VT_VALMASK;         // value information
+
+
+    if (!(regf & VT_LVAL)) {
+        UNSUPPORTED("can only store to VT_LVAL");
+    }
+
+    if (!(val_type == VT_INT || val_type == (VT_INT | VT_UNSIGNED) ||
+          val_type == VT_SHORT || val_type == (VT_SHORT | VT_UNSIGNED) ||
+          val_type == VT_BYTE || val_type == (VT_BYTE | VT_UNSIGNED) ||
+          val_type == VT_PTR)) {
+        UNSUPPORTED("unsupported format to store to (%u)", val_type);
+    }
+
+
+    if (v == VT_LOCAL) {
+
+        // SET [SP + addr], r
+
+        // Turn into stack reference.
+        if (addr >= 0)
+            addr = addr / 2 + 1;
+        else
+            addr = addr / 2;
+
+        emit_write_stack(addr, DV_A + r);
+
+    } else {
+        UNSUPPORTED("can only store to VT_LOCAL");
     }
 }
 
@@ -733,10 +797,10 @@ ST_FUNC void gfunc_call(int nb_args)
 //}
 
 /* store register 'r' in lvalue 'v' */
-ST_FUNC void store(int r, SValue *v)
-{
-    Log(__func__);
-}
+//ST_FUNC void store(int r, SValue *v)
+//{
+//    Log(__func__);
+//}
 
 /* generate function prolog of type 't' */
 //ST_FUNC void gfunc_prolog(CType *func_type)
