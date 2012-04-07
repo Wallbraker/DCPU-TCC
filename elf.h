@@ -257,6 +257,7 @@ typedef struct
 
 #define EM_ALPHA        0x9026
 #define EM_C60          0x9c60
+#define EM_DCPU16	0x900F
 
 /* Legal values for e_version (version).  */
 
@@ -1722,5 +1723,11 @@ typedef Elf32_Addr Elf32_Conflict;
 
 #define R_C60HI16      0x55       // high 16 bit MVKH embedded
 #define R_C60LO16      0x54       // low 16 bit MVKL embedded
+
+/* XXX: no ELF standard yet */
+/* DCPU16 relocs. */
+#define R_DCPU_16        1        /* Non address relocs to preserve the value. */
+#define R_DCPU_16_ADDR   2        /* This is for address since we address things
+                                     we need to devide the address with 2. */
 
 #endif  /* elf.h */

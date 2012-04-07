@@ -100,12 +100,14 @@
 
 /* default target is I386 */
 #if !defined(TCC_TARGET_I386) && !defined(TCC_TARGET_ARM) && \
-    !defined(TCC_TARGET_C67) && !defined(TCC_TARGET_X86_64)
+    !defined(TCC_TARGET_C67) && !defined(TCC_TARGET_X86_64) && \
+    !defined(TCC_TARGET_DCPU16)
 #define TCC_TARGET_I386
 #endif
 
 #if !defined(TCC_UCLIBC) && !defined(TCC_TARGET_ARM) && \
-    !defined(TCC_TARGET_C67) && !defined(TCC_TARGET_X86_64)
+    !defined(TCC_TARGET_C67) && !defined(TCC_TARGET_X86_64) &&\
+    !defined(TCC_TARGET_DCPU16)
 #define CONFIG_TCC_BCHECK /* enable bound checking code */
 #endif
 
@@ -114,7 +116,7 @@
 #endif
 
 /* define it to include assembler support */
-#if !defined(TCC_TARGET_ARM) && !defined(TCC_TARGET_C67)
+#if !defined(TCC_TARGET_ARM) && !defined(TCC_TARGET_C67) && !defined(TCC_TARGET_DCPU16)
 #define CONFIG_TCC_ASM
 #endif
 
@@ -1252,7 +1254,7 @@ ST_FUNC void gen_opf(int op);
 ST_FUNC void gen_cvt_ftoi(int t);
 ST_FUNC void gen_cvt_ftof(int t);
 ST_FUNC void ggoto(void);
-#ifndef TCC_TARGET_C67
+#if !(defined TCC_TARGET_C67 || defined TCC_TARGET_DCPU16)
 ST_FUNC void o(unsigned int c);
 #endif
 #ifndef TCC_TARGET_ARM
@@ -1283,6 +1285,10 @@ ST_FUNC void gen_addr64(int r, Sym *sym, int64_t c);
 #ifdef TCC_TARGET_ARM
 ST_FUNC uint32_t encbranch(int pos, int addr, int fail);
 ST_FUNC void gen_cvt_itof1(int t);
+#endif
+
+/* ------------ dcpu16-gen.c ------------ */
+#ifdef TCC_TARGET_DCPU16
 #endif
 
 /* ------------ c67-gen.c ------------ */
@@ -1356,6 +1362,9 @@ ST_FUNC void *resolve_sym(TCCState *s1, const char *symbol);
 #ifdef TCC_TARGET_C67
 #include "coff.h"
 #include "c67-gen.c"
+#endif
+#ifdef TCC_TARGET_DCPU16
+#include "dcpu16-gen.c"
 #endif
 #undef TARGET_DEFS_ONLY
 

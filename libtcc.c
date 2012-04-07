@@ -48,6 +48,9 @@ ST_DATA struct TCCState *tcc_state;
 #ifdef TCC_TARGET_C67
 #include "c67-gen.c"
 #endif
+#ifdef TCC_TARGET_DCPU16
+#include "dcpu16-gen.c"
+#endif
 #ifdef TCC_TARGET_X86_64
 #include "x86_64-gen.c"
 #endif
@@ -710,6 +713,12 @@ static int tcc_compile(TCCState *s1)
     char buf[512];
     volatile int section_sym;
 
+/* Because what this project needs is more ifdefs */
+#ifdef TCC_TARGET_DCPU16
+    /* initializes the code generator */
+    gen_init();
+#endif
+
 #ifdef INC_DEBUG
     printf("%s: **** new file\n", file->filename);
 #endif
@@ -937,6 +946,8 @@ LIBTCCAPI TCCState *tcc_new(void)
     tcc_define_symbol(s, "arm", NULL);
     tcc_define_symbol(s, "__APCS_32__", NULL);
 #endif
+
+#ifndef TCC_TARGET_DCPU16
 #ifdef TCC_TARGET_PE
     tcc_define_symbol(s, "_WIN32", NULL);
 #ifdef TCC_TARGET_X86_64
@@ -959,6 +970,10 @@ LIBTCCAPI TCCState *tcc_new(void)
     tcc_define_symbol(s, "__linux", NULL);
 #endif
 #endif
+#else /* TCC_TARGET_DCPU16 */
+    tcc_define_symbol(s, "__DCPU16__", NULL);
+#endif /* TCC_TARGET_DCPU16 */
+
     /* tiny C specific defines */
     sscanf(TCC_VERSION, "%d.%d.%d", &a, &b, &c);
     sprintf(buffer, "%d", a*10000 + b*100 + c);
@@ -1020,6 +1035,9 @@ LIBTCCAPI TCCState *tcc_new(void)
 #endif
     if (s->section_align == 0)
         s->section_align = ELF_PAGE_SIZE;
+#ifdef TCC_TARGET_DCPU16
+    s->nostdinc = 1;
+#endif
 #ifdef TCC_TARGET_I386
     s->seg_size = 32;
 #endif
@@ -1335,10 +1353,25 @@ LIBTCCAPI int tcc_set_output_type(TCCState *s, int output_type)
     if ((output_type == TCC_OUTPUT_EXE || output_type == TCC_OUTPUT_DLL) &&
         !s->nostdlib) {
         if (output_type != TCC_OUTPUT_DLL)
+#ifdef TCC_TARGET_DCPU16
+            tcc_add_crt(s, "crt0.o");
+#else
             tcc_add_crt(s, "crt1.o");
         tcc_add_crt(s, "crti.o");
+#endif
     }
 #endif
+
+
+#ifdef TCC_TARGET_DCPU16
+    if (output_type == TCC_OUTPUT_EXE) {
+        s->output_format = TCC_OUTPUT_FORMAT_BINARY;
+        s->static_link = 1;
+    } else if (output_type != TCC_OUTPUT_OBJ) {
+        tcc_error("Only supports EXE or OBJ outputs");
+    }
+#endif
+
     return 0;
 }
 

@@ -655,6 +655,17 @@ ST_FUNC void relocate_section(TCCState *s1, Section *s)
             fprintf(stderr,"FIXME: handle reloc type %x at %x [%.8x] to %x\n",
                 type, (unsigned)addr, (unsigned)(uplong)ptr, (unsigned)val);
             break;
+#elif defined(TCC_TARGET_DCPU16)
+        case R_DCPU_16:
+            *(short *)ptr += (short)val;
+            break;
+        case R_DCPU_16_ADDR:
+            *(short *)ptr += (short)(val / 2);
+            break;
+        default:
+            fprintf(stderr,"FIXME: handle reloc type %x at %x [%.8x] to %x\n",
+                type, (unsigned)addr, (unsigned)(uplong)ptr, (unsigned)val);
+            break;
 #elif defined(TCC_TARGET_C67)
         case R_C60_32:
             *(int *)ptr += val;
@@ -999,6 +1010,8 @@ static void put_got_entry(TCCState *s1,
             if (s1->output_type == TCC_OUTPUT_EXE)
                 offset = plt->data_offset - 16;
         }
+#elif defined(TCC_TARGET_DCPU16)
+        tcc_error("C67 got not implemented");
 #elif defined(TCC_TARGET_C67)
         tcc_error("C67 got not implemented");
 #else
@@ -1073,6 +1086,12 @@ ST_FUNC void build_got_entries(TCCState *s1)
                     put_got_entry(s1, reloc_type, sym->st_size, sym->st_info, 
                                   sym_index);
                 }
+                break;
+#elif defined(TCC_TARGET_DCPU16)
+            case 0:
+                (void)sym;
+                (void)sym_index;
+                (void)reloc_type;
                 break;
 #elif defined(TCC_TARGET_C67)
             case R_C60_GOT32:
@@ -1239,6 +1258,7 @@ ST_FUNC void tcc_add_runtime(TCCState *s1)
 
     /* add libc */
     if (!s1->nostdlib) {
+#ifndef TCC_TARGET_DCPU16
         tcc_add_library(s1, "c");
 #ifdef CONFIG_USE_LIBGCC
         tcc_add_file(s1, TCC_LIBGCC);
@@ -1248,6 +1268,7 @@ ST_FUNC void tcc_add_runtime(TCCState *s1)
         /* add crt end if not memory output */
         if (s1->output_type != TCC_OUTPUT_MEMORY)
             tcc_add_crt(s1, "crtn.o");
+#endif
     }
 }
 
@@ -1954,6 +1975,8 @@ static int elf_output_file(TCCState *s1, const char *filename)
                         put32(p + 12, x + get32(p + 12) + s1->plt->data - p);
                         p += 16;
                     }
+#elif defined(TCC_TARGET_DCPU16)
+                    /* XXX: TODO */
 #elif defined(TCC_TARGET_C67)
                     /* XXX: TODO */
 #else

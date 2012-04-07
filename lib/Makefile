@@ -41,8 +41,13 @@ I386_O = libtcc1.o alloca86.o alloca86-bt.o
 X86_64_O = libtcc1.o alloca86_64.o
 WIN32_O = $(I386_O) crt1.o wincrt1.o dllcrt1.o dllmain.o chkstk.o bcheck.o
 WIN64_O = $(X86_64_O) crt1.o wincrt1.o dllcrt1.o dllmain.o chkstk.o
+DCPU16_O = crt0.o
 
-VPATH = $(TOP)/lib $(TOP)/win32/lib
+ifneq "$(TARGET)" "dcpu16"
+ VPATH = $(TOP)/lib $(TOP)/win32/lib
+else
+ VPATH = $(TOP)/dcpu16/lib
+endif
 
 ifeq "$(TARGET)" "i386-win32"
  OBJ = $(addprefix $(DIR)/,$(WIN32_O))
@@ -72,7 +77,14 @@ ifeq "$(TARGET)" "x86_64"
   XAR = $(DIR)/tiny_libmaker$(EXESUF)
  endif
 else
+ifeq "$(TARGET)" "dcpu16"
+ OBJ = $(addprefix $(DIR)/,$(DCPU16_O))
+ TGT = -DTCC_TARGET_DCPU16
+ XCC = $(TCC) -B$(TOP)/dcpu16 -D_ANSI_SOURCE
+ XAR = $(DIR)/tiny_libmaker$(EXESUF)
+else
  $(error libtcc1.a not supported on target '$(TARGET)')
+endif
 endif
 endif
 endif
@@ -97,4 +109,4 @@ $(DIR)/exists :
 	@echo $@ > $@
 
 clean :
-	rm -rfv i386-win32 x86_64-win32 i386 x86_64
+	rm -rfv i386-win32 x86_64-win32 i386 x86_64 dcpu16

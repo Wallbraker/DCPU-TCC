@@ -11,7 +11,7 @@ LIBS_P=
 ifneq ($(GCC_MAJOR),2)
 CFLAGS+=-fno-strict-aliasing
 ifneq ($(GCC_MAJOR),3)
-CFLAGS+=-Wno-pointer-sign -Wno-sign-compare -D_FORTIFY_SOURCE=0
+CFLAGS+=-Wno-pointer-sign -Wno-sign-compare -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0
 endif
 endif
 
@@ -88,6 +88,7 @@ ARM_VFP_CROSS = arm-vfp-tcc$(EXESUF)
 ARM_EABI_CROSS = arm-eabi-tcc$(EXESUF)
 ARM_CROSS = $(ARM_FPA_CROSS) $(ARM_FPA_LD_CROSS) $(ARM_VFP_CROSS) $(ARM_EABI_CROSS)
 C67_CROSS = c67-tcc$(EXESUF)
+DCPU16_CROSS = dcpu16-tcc$(EXESUF)
 
 CORE_FILES = tcc.c libtcc.c tccpp.c tccgen.c tccelf.c tccasm.c tccrun.c
 CORE_FILES += tcc.h config.h libtcc.h tcctok.h
@@ -98,37 +99,38 @@ WINCE_FILES = $(CORE_FILES) arm-gen.c tccpe.c
 X86_64_FILES = $(CORE_FILES) x86_64-gen.c i386-asm.c x86_64-asm.h
 ARM_FILES = $(CORE_FILES) arm-gen.c
 C67_FILES = $(CORE_FILES) c67-gen.c tcccoff.c
+DCPU16_FILES = $(CORE_FILES) dcpu16-gen.c
 
 ifdef CONFIG_WIN64
 PROGS+=tiny_impdef$(EXESUF) tiny_libmaker$(EXESUF)
 NATIVE_FILES=$(WIN64_FILES)
-PROGS_CROSS=$(WIN32_CROSS) $(I386_CROSS) $(X64_CROSS) $(ARM_CROSS) $(C67_CROSS)
+PROGS_CROSS=$(WIN32_CROSS) $(I386_CROSS) $(X64_CROSS) $(ARM_CROSS) $(C67_CROSS) $(DCPU16_CROSS)
 LIBTCC1_CROSS=lib/i386-win32/libtcc1.a
 LIBTCC1=libtcc1.a
 else
 ifdef CONFIG_WIN32
 PROGS+=tiny_impdef$(EXESUF) tiny_libmaker$(EXESUF)
 NATIVE_FILES=$(WIN32_FILES)
-PROGS_CROSS=$(WIN64_CROSS) $(I386_CROSS) $(X64_CROSS) $(ARM_CROSS) $(C67_CROSS)
+PROGS_CROSS=$(WIN64_CROSS) $(I386_CROSS) $(X64_CROSS) $(ARM_CROSS) $(C67_CROSS) $(DCPU16_CROSS)
 LIBTCC1_CROSS=lib/x86_64-win32/libtcc1.a
 LIBTCC1=libtcc1.a
 else
 ifeq ($(ARCH),i386)
 NATIVE_FILES=$(I386_FILES)
-PROGS_CROSS=$(X64_CROSS) $(WIN32_CROSS) $(WIN64_CROSS) $(ARM_CROSS) $(C67_CROSS)
-LIBTCC1_CROSS=lib/i386-win32/libtcc1.a lib/x86_64-win32/libtcc1.a
+PROGS_CROSS=$(X64_CROSS) $(WIN32_CROSS) $(WIN64_CROSS) $(ARM_CROSS) $(C67_CROSS) $(DCPU16_CROSS)
+LIBTCC1_CROSS=lib/i386-win32/libtcc1.a lib/x86_64-win32/libtcc1.a lib/dcpu16/libtcc1.a
 LIBTCC1=libtcc1.a
 BCHECK_O=bcheck.o
 else
 ifeq ($(ARCH),x86-64)
 NATIVE_FILES=$(X86_64_FILES)
-PROGS_CROSS=$(I386_CROSS) $(WIN32_CROSS) $(WIN64_CROSS) $(ARM_CROSS) $(C67_CROSS)
-LIBTCC1_CROSS=lib/i386-win32/libtcc1.a lib/x86_64-win32/libtcc1.a lib/i386/libtcc1.a
+PROGS_CROSS=$(I386_CROSS) $(WIN32_CROSS) $(WIN64_CROSS) $(ARM_CROSS) $(C67_CROSS) $(DCPU16_CROSS)
+LIBTCC1_CROSS=lib/i386-win32/libtcc1.a lib/x86_64-win32/libtcc1.a lib/i386/libtcc1.a lib/dcpu16/libtcc1.a
 LIBTCC1=libtcc1.a
 else
 ifeq ($(ARCH),arm)
 NATIVE_FILES=$(ARM_FILES)
-PROGS_CROSS=$(I386_CROSS) $(X64_CROSS) $(WIN32_CROSS) $(WIN64_CROSS) $(C67_CROSS)
+PROGS_CROSS=$(I386_CROSS) $(X64_CROSS) $(WIN32_CROSS) $(WIN64_CROSS) $(C67_CROSS) $(DCPU16_CROSS)
 endif
 endif
 endif
@@ -176,6 +178,10 @@ $(WIN64_CROSS): DEFINES = -DTCC_TARGET_X86_64 -DTCC_TARGET_PE \
     -DCONFIG_TCC_LIBPATHS="\"{B}/lib/64;{B}/lib\""
 $(WINCE_CROSS): DEFINES = -DTCC_TARGET_PE
 $(C67_CROSS): DEFINES = -DTCC_TARGET_C67
+$(DCPU16_CROSS): DEFINES = -DTCC_TARGET_DCPU16 \
+    -DCONFIG_TCCDIR="\"$(tccdir)/dcpu16\"" \
+    -DCONFIG_TCC_LIBPATHS="\"{B}/lib/tcc/dcpu16\"" \
+    -DCONFIG_TCC_CRTPREFIX="\"$(tccdir)/dcpu16\""
 $(ARM_FPA_CROSS): DEFINES = -DTCC_TARGET_ARM
 $(ARM_FPA_LD_CROSS)$(EXESUF): DEFINES = -DTCC_TARGET_ARM -DLDOUBLE_SIZE=12
 $(ARM_VFP_CROSS): DEFINES = -DTCC_TARGET_ARM -DTCC_ARM_VFP
@@ -187,6 +193,7 @@ $(WIN32_CROSS): $(WIN32_FILES)
 $(WIN64_CROSS): $(WIN64_FILES)
 $(WINCE_CROSS): $(WINCE_FILES)
 $(C67_CROSS): $(C67_FILES)
+$(DCPU16_CROSS): $(DCPU16_FILES)
 $(ARM_FPA_CROSS) $(ARM_FPA_LD_CROSS) $(ARM_VFP_CROSS) $(ARM_EABI_CROSS): $(ARM_FILES)
 
 # libtcc generation and test
@@ -272,6 +279,7 @@ endif
 ifdef CONFIG_CROSS
 	mkdir -p "$(tccdir)/win32/lib/32"
 	mkdir -p "$(tccdir)/win32/lib/64"
+	mkdir -p "$(tccdir)/dcpu16"
 ifeq ($(ARCH),x86-64)
 	mkdir -p "$(tccdir)/i386"
 	$(INSTALL) -m644 lib/i386/libtcc1.a "$(tccdir)/i386"
@@ -280,6 +288,7 @@ endif
 	$(INSTALL) -m644 win32/lib/*.def "$(tccdir)/win32/lib"
 	$(INSTALL) -m644 lib/i386-win32/libtcc1.a "$(tccdir)/win32/lib/32"
 	$(INSTALL) -m644 lib/x86_64-win32/libtcc1.a "$(tccdir)/win32/lib/64"
+	$(INSTALL) -m644 lib/dcpu16/crt0.o "$(tccdir)/dcpu16"
 	cp -r win32/include/. "$(tccdir)/win32/include"
 	cp -r include/. "$(tccdir)/win32/include"
 endif

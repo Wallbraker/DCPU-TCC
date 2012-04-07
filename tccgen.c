@@ -1243,7 +1243,7 @@ static void gen_opl(int op)
 #elif defined(TCC_TARGET_ARM)
                 b = ind;
                 o(0x1A000000 | encbranch(ind, 0, 1));
-#elif defined(TCC_TARGET_C67)
+#elif defined(TCC_TARGET_C67) || defined(TCC_TARGET_DCPU16)
                 tcc_error("not implemented");
 #else
 #error not supported
@@ -2018,15 +2018,25 @@ ST_FUNC int type_size(CType *type, int *a)
 #endif
         return 8;
     } else if (bt == VT_INT || bt == VT_ENUM || bt == VT_FLOAT) {
+#ifdef TCC_TARGET_DCPU16
+        *a = 2;
+        return 2;
+#else
         *a = 4;
         return 4;
+#endif
     } else if (bt == VT_SHORT) {
         *a = 2;
         return 2;
     } else {
         /* char, void, function, _Bool */
+#ifdef TCC_TARGET_DCPU16
+        *a = 2;
+        return 2;
+#else
         *a = 1;
         return 1;
+#endif
     }
 }
 
