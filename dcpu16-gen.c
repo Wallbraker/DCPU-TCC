@@ -458,7 +458,7 @@ ST_FUNC void load(int r, SValue *sv)
 
     bool pure_indirect;        // SET r, [sv]
     int regf = sv->r;          // flags & register
-    int type_def = sv->type.t; // type definition 
+    int type_def = sv->type.t; // type definition
     int addr = sv->c.ul;       // address
     
     int align, size = type_size(&vtop[0].type, &align);
@@ -661,7 +661,7 @@ ST_FUNC void gen_opi(int op)
         emit_simple_math(MUL, r, fr, f_is_const);
         break;
     default:
-        UNSUPPORTED("unsupported integer operation (%u)", op);
+        UNSUPPORTED("unsupported integer operation (%x)", op);
     }
 }
 

@@ -118,7 +118,7 @@ static inline void dump_r(DumpFunc df, int r)
         break;
     default:
         if (val < VT_CONST)
-            len += sprintf(buffer + len, "reg %u\0", val);
+            len += sprintf(buffer + len, "< VT_CONST (reg %u)\0", val);
         else
             len += sprintf(buffer + len, "???UNKOWN??? (%u)\0", val);
     }
