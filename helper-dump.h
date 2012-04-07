@@ -64,20 +64,20 @@ static inline void dump_ctype(DumpFunc df, CType *ct)
     df(buffer);
     len = 0;
 
-    len += sprintf(buffer + len, "\t\tbtype ");
-    if (btype & VT_UNSIGNED)
+    len += sprintf(buffer + len, "\t\ttype ");
+    if (type & VT_UNSIGNED)
         len += sprintf(buffer + len, "VT_UNSIGNED ");
-    if (btype & VT_ARRAY)
+    if (type & VT_ARRAY)
         len += sprintf(buffer + len, "VT_ARRAY ");
-    if (btype & VT_VLA)
+    if (type & VT_VLA)
         len += sprintf(buffer + len, "VT_VLA ");
-    if (btype & VT_BITFIELD)
+    if (type & VT_BITFIELD)
         len += sprintf(buffer + len, "VT_BITFIELD ");
-    if (btype & VT_CONSTANT)
+    if (type & VT_CONSTANT)
         len += sprintf(buffer + len, "VT_CONSTANT ");
-    if (btype & VT_VOLATILE)
+    if (type & VT_VOLATILE)
         len += sprintf(buffer + len, "VT_VOLATILE ");
-    if (btype & VT_SIGNED)
+    if (type & VT_SIGNED)
         len += sprintf(buffer + len, "VT_SIGNED ");
 
     buffer[len] = 0;
@@ -92,7 +92,6 @@ static inline void dump_r(DumpFunc df, int r)
     int len = 0;
 
     int val = r & VT_VALMASK;
-    int lval_type = r & VT_LVAL_TYPE;
 
     len += sprintf(buffer + len, "\t\tr val ");
 
