@@ -483,6 +483,25 @@ int global_function_prolog_sp_location;
 
 
 /*
+    This function handles where VT_LOCAL is located.
+
+    For all others they are relative to the frame pointer
+    and we have to take care where exactly they are.
+
+    We might even optimize some local vars to be in registers.
+*/
+
+int global_get_vt_local_location(int addr, bool *is_register, bool is_reading_from)
+{
+    addr /= 2;
+
+    *is_register = false;
+
+    return addr;
+}
+
+
+/*
     Init this module.
 */
 
@@ -501,6 +520,7 @@ ST_FUNC void load(int r, SValue *sv)
 {
     Log("%s: %i %p (%i, %i, %i)", __func__, r, sv, sv->r, sv->type.t, sv->c.ul);
 
+    bool is_register;
     bool pure_indirect;        // SET r, [sv]
     int regf = sv->r;          // flags & register
     int type_def = sv->type.t; // type definition
@@ -565,11 +585,15 @@ ST_FUNC void load(int r, SValue *sv)
 
             // SET r, [SP + addr]
 
-            // Turn into stack reference.
-            addr = addr / 2;
+            addr = global_get_vt_local_location(addr, &is_register, true);
 
-            emit_read_stack(addr, DV_A + r);
+            if (!is_register) {
+                emit_read_stack(addr, DV_A + r);
+            } else if (r != addr) {
+                emit_ins(SET, DV_A + r, 0, DV_A + addr, 0);
+            }
         }
+
     } else {
         if (v == VT_CONST) {
 
@@ -619,6 +643,7 @@ ST_FUNC void store(int r, SValue *sv)
     int type_def = sv->type.t;         // type definition
     int val_type = type_def & VT_TYPE; // with out storage and modifier
     int v = regf & VT_VALMASK;         // value information
+    bool is_register;
     Sym* sym = sv->sym;
 
 
@@ -642,10 +667,13 @@ ST_FUNC void store(int r, SValue *sv)
 
         // SET [SP + addr], r
 
-        // Turn into stack reference.
-        addr = addr / 2;
+        addr = global_get_vt_local_location(addr, &is_register, false);
 
-        emit_write_stack(addr, DV_A + r);
+        if (!is_register) {
+            emit_write_stack(addr, DV_A + r);
+        } else if (addr != r) {
+            emit_ins(SET, DV_A + addr, 0, DV_A + r, 0);
+        }
 
     } else if (v == VT_CONST) {
 
@@ -692,7 +720,8 @@ ST_FUNC void gen_opi(int op)
 {
     int r, fr, fc, r_basic_type;
     int size, align;
-    bool f_is_const = false;
+    bool top_is_register = false;
+    bool top_is_const = false;
 
     Log(__func__);
 
@@ -702,33 +731,50 @@ ST_FUNC void gen_opi(int op)
     fr = vtop[0].r;
     fc = vtop[0].c.ul;
 
+
     // get the actual values
     if ((fr & VT_VALMASK) == VT_CONST) {
-        // vtop is const, only need to load the other one
-        vtop--;
-        r = gv(RC_INT);
 
-        if (size <= 2 && (fc < -32768 || fc > 65535))
-            tcc_warning("large integer implicitly truncated");
-
-        fr = (short)fc; // truncate and make it pass the constant around in fr.
-        f_is_const = true;
+        // truncate and make it pass the constant around in fr.
+        fr = (short)fc;
+        top_is_const = true;
 
         if (r_basic_type == VT_PTR) {
             if (fr % 2)
                 UNSUPPORTED("Unaligned pointer access!\n");
             fr /= 2;
         }
+
+    } else if ((fr & VT_LVAL) &&
+               (fr & VT_VALMASK) == VT_LOCAL) {
+
+        // vtop might be a argument to this function that has been
+        // passed as register according to the ABI.
+        fr = global_get_vt_local_location(fc, &top_is_register, false);
+    }
+
+
+    // pointer math will be wrong, if not adjusted
+    if (r_basic_type == VT_PTR && !top_is_const) {
+            UNSUPPORTED("Non constant operation on pointer\n");
+    }
+
+
+    if (top_is_register || top_is_const) {
+
+        // don't read from top, already handled
+        vtop--;
+        r = gv(RC_INT);
+
     } else {
-        gv2(RC_INT, RC_INT);
 
         // have to load both operands to registers
+        gv2(RC_INT, RC_INT);
+
         r = vtop[-1].r;
         fr = vtop[0].r;
 
-        if (r_basic_type == VT_PTR)
-            UNSUPPORTED("Non constant operation on pointer\n");
-
+        // our return should be on the top of the stack
         vtop--;
     }
 
@@ -737,20 +783,20 @@ ST_FUNC void gen_opi(int op)
         emit_ins(ADD, DV_A + r, 0, DV_O, 0);
     case '+':
     case TOK_ADDC1: // with carry generation.
-        emit_simple_math(ADD, r, fr, f_is_const);
+        emit_simple_math(ADD, r, fr, top_is_const);
         break;
 
     case TOK_SUBC2: // with carry use.
         emit_ins(SUB, DV_A + r, 0, DV_O, 0);
     case '-':
     case TOK_SUBC1: // with carry generation.
-        emit_simple_math(SUB, r, fr, f_is_const);
+        emit_simple_math(SUB, r, fr, top_is_const);
         break;
     case '/':
-        emit_simple_math(DIV, r, fr, f_is_const);
+        emit_simple_math(DIV, r, fr, top_is_const);
         break;
     case '*':
-        emit_simple_math(MUL, r, fr, f_is_const);
+        emit_simple_math(MUL, r, fr, top_is_const);
         break;
     default:
         UNSUPPORTED("unsupported integer operation (%x)", op);
@@ -759,7 +805,7 @@ ST_FUNC void gen_opi(int op)
 
 ST_FUNC void gfunc_prolog(CType *func_type)
 {
-    int param_index, size, align, addr;
+    int param_index, size, align, i, nb_reg_args, addr;
     Sym *sym;
     CType *type;
 
@@ -767,22 +813,16 @@ ST_FUNC void gfunc_prolog(CType *func_type)
 
     sym = func_type->ref;
     func_vt = sym->type;
-    addr = 0;
     loc = 0;
+    addr = 0;
     func_vc = 0;
+    param_index = 0;
 
     /* if the function returns a structure, then add an
        implicit pointer parameter */
     if ((func_vt.t & VT_BTYPE) == VT_STRUCT) {
         UNSUPPORTED("does not support struct returns");
     }
-
-
-    // JSR puts the return address on the stack.
-    addr += 2;
-
-    // We put J on the stack as well as if it where are argument.
-    addr += 2;
 
     /* define parameters */
     while ((sym = sym->next) != NULL) {
@@ -793,20 +833,32 @@ ST_FUNC void gfunc_prolog(CType *func_type)
             UNSUPPORTED("typed passed to function does not have size 2 (%i)", size);
         }
 
-        // We pass everything via the stack
+        // Pass some args via registers.
+        if (nb_reg_args < 3) {
+            nb_reg_args++;
+            loc -= 2;
+            addr = loc;
+        } else {
+            // Return addres and J is pushed that leaves 1.
+            addr = (param_index - 1);
+        }
+
         sym_push(sym->v & ~SYM_FIELD, type,
                 VT_LOCAL | lvalue_type(type->t), addr);
 
-        addr += size;
         param_index++;
     }
-
 
     // We need to ensure that J is preserved for the caller.
     emit_ins(SET, DV_PUSH, 0, DV_J, 0);
 
     // Use J as a stack pointer.
     emit_ins(SET, DV_J, 0, DV_SP, 0);
+
+    // Push the argument registers passed to the stack.
+    for (i = 0; i < nb_reg_args; i++) {
+         emit_ins(SET, DV_PUSH, 0, DV_A + 2 - i, 0);
+    }
 
     // Save space for the "SUB SP, num_locals" prolog.
     global_function_prolog_sp_location = ind;
@@ -826,7 +878,12 @@ ST_FUNC void gfunc_epilog(void)
     int saved_ind;
     int v;
 
+    v = -(loc / 2);
+
     Log(__func__);
+
+    // Restore saved space on the stack for the local vars.
+    emit_simple_math(ADD, DV_SP, v, true);
 
     // Restore J
     emit_ins(SET, DV_J, 0, DV_POP, 0);
@@ -834,11 +891,18 @@ ST_FUNC void gfunc_epilog(void)
     // Return to the caller by poping the return address and setting PC.
     emit_ins(SET, DV_PC, 0, DV_POP, 0);
 
-    // Patch the prolog_sp SUB with the number of local variables.
+
+    /*
+     * Patch the prolog_sp SUB with the number of local variables.
+     *
+     * This jumps back to the top of the function and inserts
+     *
+     * SUB, DV_SP, num_local_vars.
+     */
+
     saved_ind = ind;
     ind = global_function_prolog_sp_location;
 
-    v = (loc / 2);
 
     // Move the real stack for local variables.
     emit_ins(SUB, DV_SP, 0, DV_NEXTWORD, -v);
@@ -855,8 +919,10 @@ ST_FUNC void gfunc_epilog(void)
 
 ST_FUNC void gfunc_call(int nb_args)
 {
-    int arg_type, arg_register_type, i, r, value;
+    int arg_type, arg_register_type, i, r, value, tmp;
+    int nb_pushed_args = 0;
     bool arg_is_const = false;
+
     Sym *sym = NULL;
 
     Log("%s: num args %u", __func__, nb_args);
@@ -874,6 +940,14 @@ ST_FUNC void gfunc_call(int nb_args)
         case VT_SHORT:
         case VT_SHORT | VT_UNSIGNED:
         case VT_PTR:
+
+            // First 3 arguments are passed by register.
+            tmp = nb_args - i - 1;
+            if (tmp < 3) {
+                r = gv(RC_A << tmp);
+                break;
+            }
+
             if (arg_register_type == VT_CONST) {
                 value = vtop[0].c.ul;
                 arg_is_const = true;
@@ -887,6 +961,7 @@ ST_FUNC void gfunc_call(int nb_args)
             }
 
             emit_push_to_stack(r, vtop[0].sym, value, arg_is_const);
+            nb_pushed_args++;
             break;
         default:
             UNSUPPORTED("unsupported call parameter type (%u)", arg_type);
@@ -908,9 +983,8 @@ ST_FUNC void gfunc_call(int nb_args)
 
     vtop--;
 
-    // Need to clean up after the call
-    if (nb_args > 0)
-        emit_simple_math(ADD, DV_SP, nb_args, true);
+    if (nb_pushed_args > 0)
+        emit_simple_math(ADD, DV_SP, nb_pushed_args, true);
 }
 
 
