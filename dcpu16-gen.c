@@ -302,37 +302,37 @@ void (*emit_ins)(DIns opcode, DVals ta, uint16_t nwa, DVals tb, uint16_t nwb);
 
 
 /*
-    Emits code that reads SP + offset into any GP
-    register except J (DV_A-DV_I, 0-6).
+    Emits codes that read from the frame pointer address,
+    offseted by the given offset, to any GP.
+
+    Where the frame pointer is J.
+
+    // SET reg, [J+offset]
 */
 
 void emit_read_stack(int offset, int reg)
 {
-    // SET J, SP
-    emit_ins(SET, DV_J, 0, DV_SP, 0);
-
     if (offset < SHRT_MIN || offset > SHRT_MAX)
         tcc_error("ICE: stack access out of bounds!");
 
-    // SET reg, [J+offset]
     emit_ins(SET, reg, 0, DV_REF_REG_NEXTWORD_BASE + DV_J, offset);
 }
 
 
 /*
-    Emits code that writes to SP + offset from any GP
-    register except J (DV_A-DV_I, 0-6).
+    Emits codes that writes to the frame pointer address,
+    offsetted by the given offset, to any GP.
+
+    Where the frame pointer is J.
+
+    // SET [J+offset], reg
 */
 
 void emit_write_stack(int offset, int reg)
 {
-    // SET J, SP
-    emit_ins(SET, DV_J, 0, DV_SP, 0);
-
     if (offset < SHRT_MIN || offset > SHRT_MAX)
         tcc_error("ICE: stack access out of bounds!");
 
-    // SET reg, [J+offset]
     emit_ins(SET, DV_REF_REG_NEXTWORD_BASE + DV_J, offset, reg, 0);
 }
 
@@ -468,12 +468,22 @@ void emit_read_symbol(Sym *sym, uint16_t c, DVals ta, uint16_t nwa)
 
 
 /*
+    Since we don't know how many local variables are going to
+    be used in a function we need reserve some space at the
+    start of the function and then patch that location.
+ */
+
+int global_function_prolog_sp_location;
+
+
+/*
     Init this module.
 */
 
 void gen_init()
 {
     emit_ins = tcc_state->gen_asm ? i_emit_ins_ascii : i_emit_ins_binary;
+    global_function_prolog_sp_location = 0;
 }
 
 
@@ -548,10 +558,10 @@ ST_FUNC void load(int r, SValue *sv)
         } else {
 
             // SET r, [SP + addr]
-            if (addr >= 0)
-                addr = addr / 2 + 1; // Turn into stack reference.
-            else
-                addr = addr / 2;
+
+            // Turn into stack reference.
+            addr = addr / 2;
+
             emit_read_stack(addr, DV_A + r);
         }
     } else {
@@ -627,10 +637,7 @@ ST_FUNC void store(int r, SValue *sv)
         // SET [SP + addr], r
 
         // Turn into stack reference.
-        if (addr >= 0)
-            addr = addr / 2 + 1;
-        else
-            addr = addr / 2;
+        addr = addr / 2;
 
         emit_write_stack(addr, DV_A + r);
 
@@ -764,9 +771,15 @@ ST_FUNC void gfunc_prolog(CType *func_type)
         UNSUPPORTED("does not support struct returns");
     }
 
+
+    // JSR puts the return address on the stack.
+    addr += 2;
+
+    // We put J on the stack as well as if it where are argument.
+    addr += 2;
+
     /* define parameters */
     while ((sym = sym->next) != NULL) {
-
         type = &sym->type;
         size = type_size(type, &align);
 
@@ -781,17 +794,50 @@ ST_FUNC void gfunc_prolog(CType *func_type)
         addr += size;
         param_index++;
     }
+
+
+    // We need to ensure that J is preserved for the caller.
+    emit_ins(SET, DV_PUSH, 0, DV_J, 0);
+
+    // Use J as a stack pointer.
+    emit_ins(SET, DV_J, 0, DV_SP, 0);
+
+    // Save space for the "SUB SP, num_locals" prolog.
+    global_function_prolog_sp_location = ind;
+    ind += 4;
 }
 
 
 /*
-    The end of the function, currently we only need to return.
+    The end of the function.
+
+    Need to patch the stack pointer to save room for
+    local variables.
 */
 
 ST_FUNC void gfunc_epilog(void)
 {
+    int saved_ind;
+    int v;
+
     Log(__func__);
+
+    // Restore J
+    emit_ins(SET, DV_J, 0, DV_POP, 0);
+
+    // Return to the caller by poping the return address and setting PC.
     emit_ins(SET, DV_PC, 0, DV_POP, 0);
+
+    // Patch the prolog_sp SUB with the number of local variables.
+    saved_ind = ind;
+    ind = global_function_prolog_sp_location;
+
+    v = (loc / 2);
+
+    // Move the real stack for local variables.
+    emit_ins(SUB, DV_SP, 0, DV_NEXTWORD, -v);
+
+    ind = saved_ind;
 }
 
 
