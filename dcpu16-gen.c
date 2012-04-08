@@ -516,15 +516,14 @@ ST_FUNC void load(int r, SValue *sv)
         }
     } else {
         if (v == VT_CONST) {
-            // vtop is const, only need to load the other one
-            vtop--;
-            r = gv(RC_INT);
-            if (size <= 2 && (addr < -32768 || addr > 65535)) {
-                tcc_warning("large integer implicitly truncated");
-            }
-            addr = (uint16_t)addr; // truncate and make it pass the constant around in fr.
+
+            // SET r, value
+
+            // Not really a address but thats where the data is.
+            emit_simple_math(SET, r, addr, true);
+
         } else if (v == VT_LOCAL) {
-            UNSUPPORTED("loading const to reg not supported");
+            UNSUPPORTED("loading VT_LOCAL to reg not supported");
         } else if (v == VT_CMP) {
             UNSUPPORTED("loading VT_CMP to reg not supported");
         } else if (v == VT_JMP) {
