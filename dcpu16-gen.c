@@ -538,8 +538,11 @@ ST_FUNC void load(int r, SValue *sv)
             UNSUPPORTED("loading VT_JMP to reg not supported");
         } else if (v == VT_JMPI) {
             UNSUPPORTED("loading VT_JMPI to reg not supported");
-        } else if (v != r) {
-            UNSUPPORTED("loading from one reg to another reg not supported");
+        } else if (v < VT_CONST && v != r) {
+
+            // SET r, v
+            emit_ins(SET, r, 0, v, 0);
+
         } else {
             UNSUPPORTED("uncought case in load");
         }
