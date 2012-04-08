@@ -786,11 +786,24 @@ ST_FUNC void gen_opi(int op)
     case '*':
         emit_simple_math(MUL, r, fr, top_is_const);
         break;
+
     case TOK_NE:
         emit_simple_math(XOR, r, fr, top_is_const);
 	emit_simple_math(LFN, r, 0, top_is_const);
 	emit_simple_math(SET, r, 1, top_is_const);
-      
+    case TOK_GT:
+        emit_simple_math(XOR, DV_O, DV_O, false);
+        emit_simple_math(LFG, r, fr, top_is_const);
+        emit_simple_math(SET, DV_O, 1, true);
+        emit_simple_math(SET, r, DV_O, false);
+        break;
+    case TOK_EQ:
+        emit_simple_math(XOR, DV_O, DV_O, false);
+        emit_simple_math(LFE, r, fr, top_is_const);
+        emit_simple_math(SET, DV_O, 1, true);
+        emit_simple_math(SET, r, DV_O, false);
+        break;
+
     default:
         UNSUPPORTED("unsupported integer operation (%x)", op);
     }
