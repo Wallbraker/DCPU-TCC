@@ -586,8 +586,13 @@ ST_FUNC void store(int r, SValue *sv)
 
         emit_write_stack(addr, DV_A + r);
 
+    } else if (v < VT_CONST) {
+
+        // SET [v], r
+        emit_ins(SET, DV_REFBASE + v, 0, DV_A + r, 0);
+
     } else {
-        UNSUPPORTED("can only store to VT_LOCAL");
+        UNSUPPORTED("unsupported value store type (%u)", v);
     }
 }
 
