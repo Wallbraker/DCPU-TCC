@@ -445,6 +445,21 @@ void emit_write_to_symbol(Sym *sym, uint16_t c, DVals tb, uint16_t nwb)
 }
 
 
+/*
+   Emits a SET [ta (+ nwa)], nextword.
+   Placing the value of nextword (the address to the symbol) into ta.
+
+   Handles if ta has nextword correctly as well.
+   c is placed in nextword and is patched with the sym reloc.
+*/
+
+void emit_read_symbol(Sym *sym, uint16_t c, DVals ta, uint16_t nwa)
+{
+    emit_ins(SET, ta, nwa, DV_NEXTWORD, c);
+    greloc(cur_text_section, sym, ind - 2, R_DCPU_16_ADDR);
+}
+
+
 /*****************************************************************************
  *
  * Called by tcc.
@@ -474,12 +489,15 @@ ST_FUNC void load(int r, SValue *sv)
     int regf = sv->r;          // flags & register
     int type_def = sv->type.t; // type definition
     int addr = sv->c.ul;       // address
+    Sym* sym = sv->sym;        // symbol information
     
     int align, size = type_size(&vtop[0].type, &align);
 
     int v = regf & VT_VALMASK;
 
-    if (regf & VT_SYM)
+    if ((regf & VT_SYM) &&
+        ((regf & VT_LVAL) ||
+        v != VT_CONST))
         UNSUPPORTED("can't load symbol lookups");
 
     if (regf & VT_LVAL) {
@@ -539,10 +557,18 @@ ST_FUNC void load(int r, SValue *sv)
     } else {
         if (v == VT_CONST) {
 
-            // SET r, value
+            if (regf & VT_SYM) {
 
-            // Not really a address but thats where the data is.
-            emit_simple_math(SET, r, addr, true);
+                // SET r, sym
+                emit_read_symbol(sym, addr, r, 0);
+
+            } else {
+
+                // SET r, value
+
+                // Not really a address but thats where the data is.
+                emit_simple_math(SET, r, addr, true);
+            }
 
         } else if (v == VT_LOCAL) {
             UNSUPPORTED("loading VT_LOCAL to reg not supported");
