@@ -313,7 +313,7 @@ void (*emit_ins)(DIns opcode, DVals ta, uint16_t nwa, DVals tb, uint16_t nwb);
 void emit_read_stack(int offset, int reg)
 {
     if (offset < SHRT_MIN || offset > SHRT_MAX)
-        tcc_error("ICE: stack access out of bounds!");
+        tcc_error("ICE: stack read access out of bounds!");
 
     if (offset)
         emit_ins(SET, reg, 0, DV_REF_REG_NEXTWORD_BASE + DV_J, offset);
@@ -334,7 +334,7 @@ void emit_read_stack(int offset, int reg)
 void emit_write_stack(int offset, int reg)
 {
     if (offset < SHRT_MIN || offset > SHRT_MAX)
-        tcc_error("ICE: stack access out of bounds!");
+        tcc_error("ICE: stack write access out of bounds!");
 
     if (offset)
         emit_ins(SET, DV_REF_REG_NEXTWORD_BASE + DV_J, offset, reg, 0);
@@ -817,6 +817,7 @@ ST_FUNC void gfunc_prolog(CType *func_type)
     addr = 0;
     func_vc = 0;
     param_index = 0;
+    nb_reg_args = 0;
 
     /* if the function returns a structure, then add an
        implicit pointer parameter */
