@@ -835,7 +835,7 @@ ST_FUNC void gfunc_prolog(CType *func_type)
             addr = loc;
         } else {
             // Return addres and J is pushed that leaves 1.
-            addr = (param_index - 1);
+            addr = (param_index - 1) * 2;
         }
 
         sym_push(sym->v & ~SYM_FIELD, type,
