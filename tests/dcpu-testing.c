@@ -1,4 +1,4 @@
-int test(int a, int b);
+int test(int a, int b, int c, int d, int e);
 
 typedef (*funcCall)();
 
@@ -8,10 +8,10 @@ int main()
 {
 	((funcCall)array)();
 
-	return test(3, 5);
+	return test(1, 2, 3, 4, 5);
 }
 
-int test(int a, int b)
+int test(int a, int b, int c, int d, int e)
 {
-	return ((a + b + 1) * a / b) + (a * 6);
+	return (e + (a + b + c) * a / d) + (a * 6);
 }
