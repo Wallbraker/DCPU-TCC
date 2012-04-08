@@ -373,4 +373,7 @@ config.mak:
 	@echo "Please run ./configure."
 	@exit 1
 
+run: dcpu16-tcc
+	@./dcpu16-tcc ./tests/dcpu-testing.c -o output
+
 endif # ifeq ($(TOP),.)
