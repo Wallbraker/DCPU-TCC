@@ -788,7 +788,7 @@ ST_FUNC void gen_opi(int op)
         break;
     case TOK_NE:
         emit_simple_math(XOR, r, fr, top_is_const);
-	emit_simple_math(IFN, r, 0, top_is_const);
+	emit_simple_math(LFN, r, 0, top_is_const);
 	emit_simple_math(SET, r, 1, top_is_const);
       
     default:
