@@ -315,7 +315,10 @@ void emit_read_stack(int offset, int reg)
     if (offset < SHRT_MIN || offset > SHRT_MAX)
         tcc_error("ICE: stack access out of bounds!");
 
-    emit_ins(SET, reg, 0, DV_REF_REG_NEXTWORD_BASE + DV_J, offset);
+    if (offset)
+        emit_ins(SET, reg, 0, DV_REF_REG_NEXTWORD_BASE + DV_J, offset);
+    else
+        emit_ins(SET, reg, 0, DV_REFBASE + DV_J, 0);
 }
 
 
@@ -333,7 +336,10 @@ void emit_write_stack(int offset, int reg)
     if (offset < SHRT_MIN || offset > SHRT_MAX)
         tcc_error("ICE: stack access out of bounds!");
 
-    emit_ins(SET, DV_REF_REG_NEXTWORD_BASE + DV_J, offset, reg, 0);
+    if (offset)
+        emit_ins(SET, DV_REF_REG_NEXTWORD_BASE + DV_J, offset, reg, 0);
+    else
+        emit_ins(SET, DV_REFBASE + DV_J, 0, reg, 0);
 }
 
 
