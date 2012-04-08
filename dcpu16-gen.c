@@ -857,7 +857,7 @@ ST_FUNC void gfunc_prolog(CType *func_type)
 
     // Push the argument registers passed to the stack.
     for (i = 0; i < nb_reg_args; i++) {
-         emit_ins(SET, DV_PUSH, 0, DV_A + 2 - i, 0);
+         emit_write_stack(-1-i, DV_A + i);
     }
 
     // Save space for the "SUB SP, num_locals" prolog.
@@ -905,7 +905,7 @@ ST_FUNC void gfunc_epilog(void)
 
 
     // Move the real stack for local variables.
-    emit_ins(SUB, DV_SP, 0, DV_NEXTWORD, -v);
+    emit_ins(SUB, DV_SP, 0, DV_NEXTWORD, v);
 
     ind = saved_ind;
 }
