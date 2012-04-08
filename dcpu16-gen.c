@@ -465,6 +465,9 @@ ST_FUNC void load(int r, SValue *sv)
 
     int v = regf & VT_VALMASK;
 
+    if (regf & VT_SYM)
+        UNSUPPORTED("can't load symbol lookups");
+
     if (regf & VT_LVAL) {
         if (v == VT_LLOCAL) {
             // Definitely not sure if this is correct. Stolen from x86 and C67
@@ -478,6 +481,11 @@ ST_FUNC void load(int r, SValue *sv)
 	    load(r, &v1);
 
 	    regf = r;
+            v = regf & VT_VALMASK;
+        }
+
+        if (v == VT_LLOCAL) {
+            UNSUPPORTED("double VT_LLOCAL HUH?");
         } else if (v == VT_CONST) {
             UNSUPPORTED("loading from VT_LVAL not supported (v == VT_CONST)");
         } else if (v == VT_CMP) {
