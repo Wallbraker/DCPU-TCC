@@ -1475,7 +1475,11 @@ static void gen_opif(int op)
 static int pointed_size(CType *type)
 {
     int align;
+#ifdef TCC_TARGET_DCPU16 // One memory unit is 2 bytes
+    return type_size(pointed_type(type), &align) / 2;
+#else
     return type_size(pointed_type(type), &align);
+#endif
 }
 
 static void vla_runtime_pointed_size(CType *type)
