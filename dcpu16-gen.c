@@ -520,12 +520,12 @@ ST_FUNC void load(int r, SValue *sv)
 {
     Log("%s: %i %p (%i, %i, %i)", __func__, r, sv, sv->r, sv->type.t, sv->c.ul);
 
-    bool is_register;
-    bool pure_indirect;        // SET r, [sv]
-    int regf = sv->r;          // flags & register
-    int type_def = sv->type.t; // type definition
-    int addr = sv->c.ul;       // address
-    Sym* sym = sv->sym;        // symbol information
+    bool is_register = false;
+    bool pure_indirect = false; // SET r, [sv]
+    int regf = sv->r;           // flags & register
+    int type_def = sv->type.t;  // type definition
+    int addr = sv->c.ul;        // address
+    Sym* sym = sv->sym;         // symbol information
     
     int align, size = type_size(&vtop[0].type, &align);
 
@@ -643,7 +643,7 @@ ST_FUNC void store(int r, SValue *sv)
     int type_def = sv->type.t;         // type definition
     int val_type = type_def & VT_TYPE; // with out storage and modifier
     int v = regf & VT_VALMASK;         // value information
-    bool is_register;
+    bool is_register = false;
     Sym* sym = sv->sym;
 
 
@@ -721,18 +721,15 @@ ST_FUNC void store(int r, SValue *sv)
 
 ST_FUNC void gen_opi(int op)
 {
-    int r, fr, fc, r_basic_type;
-    int size, align;
-    bool top_is_register = false;
-    bool top_is_const = false;
-
     Log(__func__);
 
-    size = type_size(&vtop[0].type, &align);
-    r = vtop[-1].r;
-    r_basic_type = vtop[-1].type.t & VT_BTYPE;
-    fr = vtop[0].r;
-    fc = vtop[0].c.ul;
+    int align, size = type_size(&vtop[0].type, &align);
+    int r = vtop[-1].r;
+    int r_basic_type = vtop[-1].type.t & VT_BTYPE;
+    int fr = vtop[0].r;
+    int fc = vtop[0].c.ul;
+    bool top_is_const = false;
+    bool top_is_register = false;
 
 
     // get the actual values
@@ -796,25 +793,31 @@ ST_FUNC void gen_opi(int op)
 
 ST_FUNC void gfunc_prolog(CType *func_type)
 {
-    int param_index, size, align, i, nb_reg_args, addr;
-    Sym *sym;
-    CType *type;
-
     Log(__func__);
 
-    sym = func_type->ref;
-    func_vt = sym->type;
+    Sym* sym = func_type->ref;
+    CType *type = NULL;
+    int i = 0;
+    int align = 0, size = 0;
+    int addr = 0;
+    int func_vc = 0;
+    int param_index = 0;
+    int nb_reg_args = 0;
+
+    // A global var, that tells where the most
+    // rescent local variable has been placed.
     loc = 0;
-    addr = 0;
-    func_vc = 0;
-    param_index = 0;
-    nb_reg_args = 0;
+
+    // XXX What does func_vt do?
+    func_vt = sym->type;
+
 
     /* if the function returns a structure, then add an
        implicit pointer parameter */
     if ((func_vt.t & VT_BTYPE) == VT_STRUCT) {
         UNSUPPORTED("does not support struct returns");
     }
+
 
     /* define parameters */
     while ((sym = sym->next) != NULL) {
@@ -867,10 +870,9 @@ ST_FUNC void gfunc_prolog(CType *func_type)
 
 ST_FUNC void gfunc_epilog(void)
 {
-    int saved_ind;
-    int v;
+    int saved_ind = 0;
 
-    v = -(loc / 2);
+    int v = -(loc / 2);
 
     Log(__func__);
 
@@ -911,7 +913,12 @@ ST_FUNC void gfunc_epilog(void)
 
 ST_FUNC void gfunc_call(int nb_args)
 {
-    int arg_type, arg_register_type, i, r, value, tmp;
+    int arg_type = 0;
+    int arg_register_type = 0;
+    int i = 0;
+    int r = 0;
+    int value = 0;
+    int tmp = 0;
     int nb_pushed_args = 0;
     bool arg_is_const = false;
 
@@ -1091,7 +1098,10 @@ ST_FUNC void gen_opf(int op)
 ST_FUNC void gsym_addr(int t, int a)
 {
     Log("%s: t=%d, a=%d", __func__, t, a);
-    int n, *ptr;
+
+    int n = 0;
+    int *ptr = NULL;
+
     while (t) {
         ptr = (int *)(cur_text_section->data + t);
         n = *ptr; /* next value */
