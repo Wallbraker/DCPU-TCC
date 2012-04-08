@@ -1265,6 +1265,12 @@ ST_FUNC int tcc_add_dll(TCCState *s, const char *filename, int flags)
 }
 #endif
 
+LIBTCCAPI int tcc_add_crt_path(TCCState *s, const char *pathname)
+{
+    tcc_split_path(s, (void ***)&s->crt_paths, &s->nb_crt_paths, pathname);
+    return 0;
+}
+
 ST_FUNC int tcc_add_crt(TCCState *s, const char *filename)
 {
     if (-1 == tcc_add_library_internal(s, "%s/%s",
