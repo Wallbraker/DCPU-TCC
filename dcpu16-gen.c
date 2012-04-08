@@ -431,6 +431,20 @@ void emit_push_to_stack(int r, Sym *sym, uint16_t c, bool is_const)
 }
 
 
+/*
+   Emits a SET [nextword], tb.
+
+   c is placed in nextword and is patched with the sym reloc.
+   Handles if tb has nextword correctly as well.
+*/
+
+void emit_write_to_symbol(Sym *sym, uint16_t c, DVals tb, uint16_t nwb)
+{
+    emit_ins(SET, DV_REF_NEXTWORD, c, tb, nwb);
+    greloc(cur_text_section, sym, HAS_NEXTWORD(tb) ? ind - 4 : ind - 2, R_DCPU_16_ADDR);
+}
+
+
 /*****************************************************************************
  *
  * Called by tcc.
@@ -563,6 +577,7 @@ ST_FUNC void store(int r, SValue *sv)
     int type_def = sv->type.t;         // type definition
     int val_type = type_def & VT_TYPE; // with out storage and modifier
     int v = regf & VT_VALMASK;         // value information
+    Sym* sym = sv->sym;
 
 
     if (!(regf & VT_LVAL)) {
@@ -576,6 +591,10 @@ ST_FUNC void store(int r, SValue *sv)
         UNSUPPORTED("unsupported format to store to (%u)", val_type);
     }
 
+    // Paraniod checking.
+    if ((regf & VT_SYM) && v != VT_CONST) {
+        UNSUPPORTED("can only handle symbol lookups with const");
+    }
 
     if (v == VT_LOCAL) {
 
@@ -588,6 +607,25 @@ ST_FUNC void store(int r, SValue *sv)
             addr = addr / 2;
 
         emit_write_stack(addr, DV_A + r);
+
+    } else if (v == VT_CONST) {
+
+        // SET [addr], r
+
+        if (regf & VT_SYM) {
+
+            addr /= 2; // The address isn't comming from the user.
+            emit_write_to_symbol(sym, addr, DV_A + r, 0);
+
+        } else {
+
+            // The address is comming directly from code no need to devide by 2.
+
+            if (addr < DV_LITERAL_NUM)
+                emit_ins(SET, DV_LITERAL_BASE + addr, 0, DV_A + r, 0);
+            else
+                emit_ins(SET, DV_REF_NEXTWORD, addr, DV_A + r, 0);
+        }
 
     } else if (v < VT_CONST) {
 
