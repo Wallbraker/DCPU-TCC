@@ -151,7 +151,7 @@ static char* dval_names[] = {
 };
 
 #define DINS_NUM (EXT_SYS + 1)
-#define DINS_NUM_BASIC (IFB + 1)
+#define DIS_NUM_BASIC (IFB + 1)
 #define DINS_EXT_BASE (EXT_RESERVED)
 
 #define HAS_NEXTWORD(v) \
@@ -786,6 +786,11 @@ ST_FUNC void gen_opi(int op)
     case '*':
         emit_simple_math(MUL, r, fr, top_is_const);
         break;
+    case TOK_NE:
+        emit_simple_math(XOR, r, fr, top_is_const);
+	emit_simple_math(IFN, r, 0, top_is_const);
+	emit_simple_math(SET, r, 1, top_is_const);
+      
     default:
         UNSUPPORTED("unsupported integer operation (%x)", op);
     }
