@@ -488,6 +488,29 @@ static int parse_args(TCCState *s, int argc, char **argv)
     return optind;
 }
 
+#ifdef TCC_TARGET_DCPU16
+#include <libgen.h>
+
+void add_relative_paths(TCCState *s, const char *argv)
+{
+    static char extra[] = "/lib/dcpu16";
+    char path[512+sizeof(extra)+1];
+    char *ret;
+    int len;
+
+    strncpy(path, argv, sizeof(path));
+
+    ret = dirname(path);
+
+    len = strlen(path);
+
+    strncpy(path + len, extra, sizeof(extra));
+
+    tcc_add_crt_path(s, ret);
+    tcc_add_library_path(s, ret);
+}
+#endif
+
 int main(int argc, char **argv)
 {
     int i;
@@ -497,6 +520,10 @@ int main(int argc, char **argv)
     const char *default_file = NULL;
 
     s = tcc_new();
+
+#ifdef TCC_TARGET_DCPU16
+    add_relative_paths(s, *argv);
+#endif
 
     output_type = TCC_OUTPUT_EXE;
     outfile = NULL;
