@@ -375,35 +375,37 @@ void emit_write_stack(int offset, int reg)
 
     op - the operation to be used
     a - always a register offset
-    b - either a register offset or a constant value
-    b_is_const - b is stored as a literal or a nextword.
-
+    b - always a register offset
+    c - c a constant value passed as a other argument
+        to safely work around C int conversion rules.
+    is_const - use c instead of b, stored as a literal
+        or a nextword.
 
     1 word instruction to add a and b together.
-    emit_simple_math(ADD, 0, 1, false);
+    emit_simple_math(ADD, 0, 1, 0, false);
     becomes
     emit_ins(ADD, DV_A, 0, DV_B, 0);
 
 
     1 word instruction to shift a by 5.
-    emit_simple_math(SHL, 0, 5, true);
+    emit_simple_math(SHL, 0, 0, 5, true);
     becomes
     emit_ins(SHL, DV_A, 0, DV_LITERAL_BASE + 5, 0);
 
 
     2 word instruction to add 1337 to a.
-    emit_simple_math(ADD, 0, 1337, true);
+    emit_simple_math(ADD, 0, 0, 1337, true);
     becomes
     emit_ins(ADD, DV_A, 0, DV_NEXTWORD, 1337);
 */
 
-void emit_simple_math(DIns op, int a, int b, bool b_is_const)
+void emit_simple_math(DIns op, int a, int b, uint16_t c, bool b_is_const)
 {
     if (b_is_const) {
-        if (b < DV_LITERAL_NUM)
-            emit_ins(op, DV_A + a, 0, DV_LITERAL_BASE + b, 0);
+        if (c < DV_LITERAL_NUM)
+            emit_ins(op, DV_A + a, 0, DV_LITERAL_BASE + c, 0);
         else
-            emit_ins(op, DV_A + a, 0, DV_NEXTWORD, b);
+            emit_ins(op, DV_A + a, 0, DV_NEXTWORD, c);
     } else {
         emit_ins(op, DV_A + a, 0, DV_A + b, 0);
     }
@@ -457,7 +459,7 @@ void emit_push_to_stack(int r, Sym *sym, uint16_t c, bool is_const)
         emit_ins(SET, DV_PUSH, 0, DV_NEXTWORD, c);
         greloc(cur_text_section, sym, ind - 2, R_DCPU_16_ADDR);
     } else {
-        emit_simple_math(SET, DV_PUSH, c, is_const);
+        emit_simple_math(SET, DV_PUSH, c, c, is_const);
     }
 }
 
@@ -665,7 +667,7 @@ ST_FUNC void load(int r, SValue *sv)
                 // SET r, value
 
                 // Not really a address but thats where the data is.
-                emit_simple_math(SET, r, addr, true);
+                emit_simple_math(SET, r, 0, addr, true);
             }
 
         } else if (v == VT_LOCAL) {
@@ -829,37 +831,37 @@ ST_FUNC void gen_opi(int op)
         emit_ins(ADD, DV_A + r, 0, DV_O, 0);
     case '+':
     case TOK_ADDC1: // with carry generation.
-        emit_simple_math(ADD, r, fr, top_is_const);
+        emit_simple_math(ADD, r, fr, fr, top_is_const);
         break;
 
     case TOK_SUBC2: // with carry use.
         emit_ins(SUB, DV_A + r, 0, DV_O, 0);
     case '-':
     case TOK_SUBC1: // with carry generation.
-        emit_simple_math(SUB, r, fr, top_is_const);
+        emit_simple_math(SUB, r, fr, fr, top_is_const);
         break;
     case '/':
-        emit_simple_math(DIV, r, fr, top_is_const);
+        emit_simple_math(DIV, r, fr, fr, top_is_const);
         break;
     case '*':
-        emit_simple_math(MUL, r, fr, top_is_const);
+        emit_simple_math(MUL, r, fr, fr, top_is_const);
         break;
 
     case TOK_NE:
-        emit_simple_math(XOR, r, fr, top_is_const);
-	emit_simple_math(LFN, r, 0, top_is_const);
-	emit_simple_math(SET, r, 1, top_is_const);
+        emit_simple_math(XOR, r, fr, fr, top_is_const);
+	emit_simple_math(LFN, r, 0, 0, true);
+	emit_simple_math(SET, r, 1, 0, true);
     case TOK_GT:
-        emit_simple_math(XOR, DV_O, DV_O, false);
-        emit_simple_math(LFG, r, fr, top_is_const);
-        emit_simple_math(SET, DV_O, 1, true);
-        emit_simple_math(SET, r, DV_O, false);
+        emit_simple_math(XOR, DV_O, DV_O, 0, false);
+        emit_simple_math(LFG, r, fr, fr, top_is_const);
+        emit_simple_math(SET, DV_O, 0, 1, true);
+        emit_simple_math(SET, r, DV_O, 0, false);
         break;
     case TOK_EQ:
-        emit_simple_math(XOR, DV_O, DV_O, false);
-        emit_simple_math(LFE, r, fr, top_is_const);
-        emit_simple_math(SET, DV_O, 1, true);
-        emit_simple_math(SET, r, DV_O, false);
+        emit_simple_math(XOR, DV_O, DV_O, 0, false);
+        emit_simple_math(LFE, r, fr, fr, top_is_const);
+        emit_simple_math(SET, DV_O, 0, 1, true);
+        emit_simple_math(SET, r, DV_O, 0, false);
         break;
 
     default:
@@ -955,7 +957,7 @@ ST_FUNC void gfunc_epilog(void)
     Log(__func__);
 
     // Restore saved space on the stack for the local vars.
-    emit_simple_math(ADD, DV_SP, v, true);
+    emit_simple_math(ADD, DV_SP, 0, v, true);
 
     // Restore J
     emit_ins(SET, DV_J, 0, DV_POP, 0);
@@ -1076,7 +1078,7 @@ ST_FUNC void gfunc_call(int nb_args)
 #endif
 
     if (nb_pushed_args > 0)
-        emit_simple_math(ADD, DV_SP, nb_pushed_args, true);
+        emit_simple_math(ADD, DV_SP, 0, nb_pushed_args, true);
 }
 
 
@@ -1192,7 +1194,7 @@ ST_FUNC int gtst(int inv, int t)
 
             v = gv(RC_INT);	// get value into a reg
 
-            emit_simple_math(inv ? LFE : LFN, v, 0, true);
+            emit_simple_math(inv ? LFE : LFN, v, 0, 0, true);
             t = emit_jump_to_symbol(t);
         }
     }
