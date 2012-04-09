@@ -602,8 +602,6 @@ ST_FUNC void load(int r, SValue *sv)
     int addr = sv->c.ul;        // address
     Sym* sym = sv->sym;         // symbol information
     
-    int align, size = type_size(&vtop[0].type, &align);
-
     int v = regf & VT_VALMASK;
 
     int val_type = type_def & VT_BTYPE;
@@ -810,9 +808,7 @@ ST_FUNC void gen_opi(int op)
 {
     Log(__func__);
 
-    int align, size = type_size(&vtop[0].type, &align);
     int r = vtop[-1].r;
-    int r_basic_type = vtop[-1].type.t & VT_BTYPE;
     int fr = vtop[0].r;
     int fc = vtop[0].c.ul;
     bool top_is_const = false;
@@ -911,7 +907,6 @@ ST_FUNC void gfunc_prolog(CType *func_type)
     int i = 0;
     int align = 0, size = 0;
     int addr = 0;
-    int func_vc = 0;
     int param_index = 0;
     int nb_reg_args = 0;
 

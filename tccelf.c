@@ -1268,6 +1268,8 @@ ST_FUNC void tcc_add_runtime(TCCState *s1)
         /* add crt end if not memory output */
         if (s1->output_type != TCC_OUTPUT_MEMORY)
             tcc_add_crt(s1, "crtn.o");
+#else
+        (void)tcc_add_support;
 #endif
     }
 }
