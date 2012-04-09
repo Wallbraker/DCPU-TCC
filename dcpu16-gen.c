@@ -466,6 +466,27 @@ void emit_read_symbol(Sym *sym, uint16_t c, DVals ta, uint16_t nwa)
 }
 
 
+/*
+    Emit a JSR nextword opcode.
+    Nextword is set to prev_refering_loc_to_same_label.
+
+    The smybol relocaction isn't issued here but is instead
+    delayed. Some callers like gjmp_addr will issue it direct
+    others will wait until that location of the jmp is known.
+
+    prev_refering_loc_to_same_label - These are used as a linked
+        list to old locations that point to the same list.
+        gsym_addr will walk this list and emit grelocs to it.
+*/
+
+int emit_jump_to_symbol(int prev_refering_loc_to_same_label)
+{
+    emit_ins(SET, DV_PC, 0, DV_NEXTWORD, prev_refering_loc_to_same_label);
+
+    return ind - 2;
+}
+
+
 /*****************************************************************************
  *
  * Called by tcc.
@@ -1005,6 +1026,128 @@ ST_FUNC void gfunc_call(int nb_args)
 }
 
 
+/*
+    Output a symbol and patch all calls to it
+*/
+
+ST_FUNC void gsym_addr(int t, int addr)
+{
+    Log("%s: t=%d, a=%d", __func__, t, addr);
+
+    int n = 0;
+    short *ptr = NULL;
+    Sym *sym = NULL;
+
+    if (t)
+        sym = get_sym_ref(&char_pointer_type, cur_text_section, addr, 0);
+
+    while (t) {
+
+        printf("%u \n", t);
+
+        ptr = (short *)(cur_text_section->data + t);
+        n = *ptr; /* next value */
+
+	greloc(cur_text_section, sym, t, R_DCPU_16_ADDR);
+
+        t = n;
+        *ptr = 0;
+    }
+}
+
+
+/*
+    Resolve all relocs to the current location.
+
+    Uses gsym_addr with the current location.
+*/
+
+ST_FUNC void gsym(int t)
+{
+    Log("%s: t=%d", __func__, t);
+    gsym_addr(t, ind);
+}
+
+
+/*
+    Generate a jump to a label.
+
+    See emit_jump_to_symbol for more explination
+    about the argument t.
+
+*/
+
+ST_FUNC int gjmp(int t)
+{
+    Log("%s: %u", __func__, t);
+    return emit_jump_to_symbol(t);
+}
+
+
+/*
+    Generate a jump to a fixed address.
+
+    This needs to be patched.
+*/
+
+ST_FUNC void gjmp_addr(int a)
+{
+    Log("%s: %x", __func__, a);
+
+    // I guess this routine is used for relative short
+    // local jumps, for now just handle it as the general
+    // case
+
+    // place a zero there later the symbol will be added to it
+    int t = emit_jump_to_symbol(0);
+
+    gsym_addr(t, a);
+}
+
+
+/*
+    Generate a test.
+
+    inv - set 'inv' to invert test. Stack entry is popped.
+    t - see emit_jump_to_symbol.
+*/
+
+ST_FUNC int gtst(int inv, int t)
+{
+    Log(__func__);
+    int v;
+
+    dump_svalue_printf(vtop);
+
+    v = vtop->r & VT_VALMASK;
+
+    if (v == VT_CMP) {
+        UNSUPPORTED("can't performe this conditional jump (VT_CMP) %i %i", inv, t);
+    } else if (v == VT_JMP || v == VT_JMPI) {
+        UNSUPPORTED("can't performe this conditional jump (VT_JMP, VT_JMPI) %i %i", inv, t);
+    } else {
+        if ((vtop->r & (VT_VALMASK | VT_LVAL | VT_SYM)) == VT_CONST) {
+            /* constant jmp optimization */
+            if ((vtop->c.i != 0) != inv)
+                t = gjmp(t);
+        } else {
+            // I think we need to get the value on the stack
+            // into a register, test it, and generate a branch
+            // return the address of the branch, so it can be
+            // later patched
+
+            v = gv(RC_INT);	// get value into a reg
+
+            emit_simple_math(inv ? LFE : LFN, v, 0, true);
+            t = emit_jump_to_symbol(t);
+        }
+    }
+
+    vtop--;
+    return t;
+}
+
+
 /*****************************************************************************
  *
  * Not implemented stuff!
@@ -1070,25 +1213,14 @@ ST_FUNC void gen_bounded_ptr_deref(void)
 }
 #endif
 
-/* generate a jump to a label */
-ST_FUNC int gjmp(int t)
-{
-    Log(__func__);
-    return 0;
-}
 
-/* generate a jump to a fixed address */
-ST_FUNC void gjmp_addr(int a)
-{
-    Log(__func__);
-}
 
 /* generate a test. set 'inv' to invert test. Stack entry is popped */
-ST_FUNC int gtst(int inv, int t)
-{
-    Log(__func__);
-    return 0;
-}
+//ST_FUNC int gtst(int inv, int t)
+//{
+//    Log(__func__);
+//    return 0;
+//}
 
 /* generate an integer binary operation */
 //ST_FUNC void gen_opi(int op)
@@ -1111,28 +1243,6 @@ ST_FUNC void gen_opf(int op)
 //{
 //    Log(__func__);
 //}
-
-/* output a symbol and patch all calls to it */
-ST_FUNC void gsym_addr(int t, int a)
-{
-    Log("%s: t=%d, a=%d", __func__, t, a);
-
-    int n = 0;
-    int *ptr = NULL;
-
-    while (t) {
-        ptr = (int *)(cur_text_section->data + t);
-        n = *ptr; /* next value */
-        *ptr = a - t - 2;
-        t = n;
-    }
-}
-
-ST_FUNC void gsym(int t)
-{
-    Log("%s: t=%d", __func__, t);
-    gsym_addr(t, ind);
-}
 
 /* computed goto support */
 ST_FUNC void ggoto(void)
