@@ -31,6 +31,16 @@ enum {
     TREG_I
 };
 
+
+/*
+    Undefine this to avoid using the stack so muck.
+
+    This will break the C ABI tho.
+*/
+#undef USE_REGS_FOR_LOCALS
+
+
+#ifndef USE_REGS_FOR_LOCALS
 ST_DATA const int reg_classes[NB_REGS] = {
     RC_INT | RC_A,
     RC_INT | RC_B,
@@ -40,6 +50,21 @@ ST_DATA const int reg_classes[NB_REGS] = {
     RC_INT | RC_Z,
     RC_INT | RC_I,
 };
+
+#else
+
+ST_DATA const int reg_classes[NB_REGS] = {
+    RC_INT | RC_A,
+    RC_B,
+    RC_C,
+    RC_X,
+    RC_Y,
+    RC_INT | RC_Z,
+    RC_INT | RC_I,
+};
+
+#define NUM_LOCAL_REGS 4
+#endif
 
 #define REG_IRET TREG_A /* single word int return register */
 #define REG_LRET TREG_A /* second word return register (for long long) */
@@ -516,9 +541,21 @@ int global_get_vt_local_location(int addr, bool *is_register, bool is_reading_fr
 {
     addr /= 2;
 
+#ifndef USE_REGS_FOR_LOCALS
     *is_register = false;
 
     return addr;
+#else
+    if (-4 <= addr && addr <= -1) {
+        *is_register = true;
+        printf("is nice\n");
+        return DV_A - addr;
+    } else {
+        *is_register = false;
+        return addr;
+    }
+#endif
+
 }
 
 
@@ -889,10 +926,12 @@ ST_FUNC void gfunc_prolog(CType *func_type)
     // Use J as a stack pointer.
     emit_ins(SET, DV_J, 0, DV_SP, 0);
 
+#ifndef USE_REGS_FOR_LOCALS
     // Push the argument registers passed to the stack.
     for (i = 0; i < nb_reg_args; i++) {
          emit_write_stack(-1-i, DV_A + i);
     }
+#endif
 
     // Save space for the "SUB SP, num_locals" prolog.
     global_function_prolog_sp_location = ind;
@@ -967,6 +1006,14 @@ ST_FUNC void gfunc_call(int nb_args)
 
     save_regs(0);
 
+#ifdef USE_REGS_FOR_LOCALS
+    // Save regs used for locals.
+    int regs_to_save = -(loc / 2);
+    for (i = 1; i <= regs_to_save && i <= NUM_LOCAL_REGS; i++) {
+         emit_write_stack(-i, DV_A + i);
+    }
+#endif
+
     for (i = 0; i < nb_args; i++) {
         arg_register_type = vtop[0].r & VT_VALMASK;
         arg_type = vtop[0].type.t & VT_BTYPE;
@@ -1020,6 +1067,13 @@ ST_FUNC void gfunc_call(int nb_args)
     }
 
     vtop--;
+
+#ifdef USE_REGS_FOR_LOCALS
+    // Restore regs.
+    for (i = 1; i <= regs_to_save && i <= NUM_LOCAL_REGS; i++) {
+         emit_read_stack(-i, DV_A + i);
+    }
+#endif
 
     if (nb_pushed_args > 0)
         emit_simple_math(ADD, DV_SP, nb_pushed_args, true);
