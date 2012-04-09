@@ -1,27 +1,47 @@
-int test(int a, int b, int c, int d, int e);
+#define SYS(__sysn) ((((__sysn) + 0x20) << 10) | (2 << 4))
 
-typedef (*funcCall)();
+unsigned short sys1_value[] = {0x01a1, SYS(2), 0x61c1};
+#define dputs(__str) ((void (*)(const char*))sys1_value)(__str)
 
-short array = {0x61c1};
+struct program {
+	int state;
+	int foo;
+} program;
+
+int test(struct program *p);
+void printResult(int a);
+
 
 int main()
 {
-	((funcCall)array)();
+	program.state = 3;
+	program.foo = 4;
 
-	int some_var = 3;
+	int ret = test(&program);
 
-	int ret = test(1, 2, 3, 4, 5);
+	printResult(ret);
 
-	return some_var + ret;
+	ret = foo(6);
+
+	printResult(ret);
+
+	return foo(ret);
 }
 
 int foo(int a)
 {
-	return 9 + a;
+	return a - 4;
 }
 
-int test(int a, int b, int c, int d, int e)
+int test(struct program *p)
 {
-	a = foo(a);
-	return ((a  + b + c) * d / a) + (d * e);
+	return p->state + p->foo;
+}
+
+void printResult(int a)
+{
+	static char string[] = "result is 0\n\0";
+
+	string[10] = '0' + a;
+	dputs(string);
 }
