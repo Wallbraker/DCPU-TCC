@@ -1155,30 +1155,6 @@ ST_FUNC int gtst(int inv, int t)
  */
 
 
-/* load 'r' from value 'sv' */
-//ST_FUNC void load(int r, SValue *sv)
-//{
-//    Log(__func__);
-//}
-
-/* store register 'r' in lvalue 'v' */
-//ST_FUNC void store(int r, SValue *v)
-//{
-//    Log(__func__);
-//}
-
-/* generate function prolog of type 't' */
-//ST_FUNC void gfunc_prolog(CType *func_type)
-//{
-//    Log(__func__);
-//}
-
-/* generate function epilog */
-//ST_FUNC void gfunc_epilog(void)
-//{
-//    Log(__func__);
-//}
-
 /* convert integers to fp 't' type. Must handle 'int', 'unsigned int'
    and 'long long' cases. */
 ST_FUNC void gen_cvt_itof(int t)
@@ -1213,21 +1189,6 @@ ST_FUNC void gen_bounded_ptr_deref(void)
 }
 #endif
 
-
-
-/* generate a test. set 'inv' to invert test. Stack entry is popped */
-//ST_FUNC int gtst(int inv, int t)
-//{
-//    Log(__func__);
-//    return 0;
-//}
-
-/* generate an integer binary operation */
-//ST_FUNC void gen_opi(int op)
-//{
-//    Log(__func__);
-//}
-
 /* generate a floating point operation 'v = t1 op t2' instruction. The
    two operands are guaranted to have the same floating point type */
 /* XXX: need to use ST1 too */
@@ -1235,14 +1196,6 @@ ST_FUNC void gen_opf(int op)
 {
     Log(__func__);
 }
-
-/* Generate function call. The function address is pushed first, then
-   all the parameters in call order. This functions pops all the
-   parameters and the function address. */
-//ST_FUNC void gfunc_call(int nb_args)
-//{
-//    Log(__func__);
-//}
 
 /* computed goto support */
 ST_FUNC void ggoto(void)
