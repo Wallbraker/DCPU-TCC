@@ -3786,7 +3786,11 @@ ST_FUNC void unary(void)
                 tcc_error("field not found: %s",  get_tok_str(tok & ~SYM_FIELD, NULL));
             /* add field offset to pointer */
             vtop->type = char_pointer_type; /* change type to 'char *' */
+#ifdef TCC_TARGET_DCPU16
+            vpushi(s->c / 2);
+#else
             vpushi(s->c);
+#endif
             gen_op('+');
             /* change type to field type, and set to lvalue */
             vtop->type = s->type;
