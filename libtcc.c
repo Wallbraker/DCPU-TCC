@@ -1671,7 +1671,11 @@ PUB_FUNC char *tcc_default_target(TCCState *s, const char *default_file)
         && *ext)
         strcpy(ext, ".o");
     else
+#ifdef TCC_TARGET_DCPU16
+        pstrcpy(buf, sizeof(buf), "a.dcpu16");
+#else
         pstrcpy(buf, sizeof(buf), "a.out");
+#endif
 
     return tcc_strdup(buf);
 }
