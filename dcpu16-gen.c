@@ -115,7 +115,7 @@ ST_DATA const int reg_classes[NB_REGS] = {
 
 #define Log(...) do{ \
     emit_printf(" ; "); emit_printf(__VA_ARGS__); emit_printf("\n"); \
-    printf(__VA_ARGS__); puts(""); \
+    /*printf(__VA_ARGS__); puts("");*/ \
 } while (0)
 
 #define UNSUPPORTED(...) do { \
@@ -1132,8 +1132,6 @@ ST_FUNC void gsym_addr(int t, int addr)
 
     while (t) {
 
-        printf("%u \n", t);
-
         ptr = (short *)(cur_text_section->data + t);
         n = *ptr; /* next value */
 
@@ -1205,8 +1203,6 @@ ST_FUNC int gtst(int inv, int t)
 {
     Log(__func__);
     int v;
-
-    dump_svalue_printf(vtop);
 
     v = vtop->r & VT_VALMASK;
 
