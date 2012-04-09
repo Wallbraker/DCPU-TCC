@@ -875,13 +875,25 @@ ST_FUNC void gen_opi(int op)
     case TOK_SHR:
         emit_simple_math(SHR, r, fr, fr, top_is_const);
         break;
+    case '|':
+        emit_simple_math(BOR, r, fr, fr, top_is_const);
+        break;
+    case '&':
+        emit_simple_math(AND, r, fr, fr, top_is_const);
+        break;
 
     case TOK_NE:
         emit_simple_math(XOR, r, fr, fr, top_is_const);
 	emit_simple_math(LFN, r, 0, 0, true);
 	emit_simple_math(SET, r, 1, 0, true);
+    case TOK_LE:
+        emit_simple_math(SET, DV_O, 0, 1, true);
+        emit_simple_math(LFG, r, fr, fr, top_is_const);
+        emit_simple_math(SET, DV_O, 0, 0, true);
+        emit_simple_math(SET, r, DV_O, 0, false);
+        break;
     case TOK_GT:
-        emit_simple_math(XOR, DV_O, DV_O, 0, false);
+        emit_simple_math(SET, DV_O, 0, 0, true);
         emit_simple_math(LFG, r, fr, fr, top_is_const);
         emit_simple_math(SET, DV_O, 0, 1, true);
         emit_simple_math(SET, r, DV_O, 0, false);
