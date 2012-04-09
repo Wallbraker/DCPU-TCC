@@ -492,6 +492,21 @@ void emit_read_symbol(Sym *sym, uint16_t c, DVals ta, uint16_t nwa)
     greloc(cur_text_section, sym, ind - 2, R_DCPU_16_ADDR);
 }
 
+/*
+   Emits a SET [ta (+ nwa)], [nextword].
+   Placing the value of what nextword is pointing to
+   into ta.
+
+   Handles if ta has nextword correctly as well.
+   c is placed in nextword and is patched with the sym reloc.
+*/
+
+void emit_read_symbol_ref(Sym *sym, uint16_t c, DVals ta, uint16_t nwa)
+{
+    emit_ins(SET, ta, nwa, DV_REF_NEXTWORD, c);
+    greloc(cur_text_section, sym, ind - 2, R_DCPU_16_ADDR);
+}
+
 
 /*
     Emit a JSR nextword opcode.
@@ -591,11 +606,21 @@ ST_FUNC void load(int r, SValue *sv)
 
     int v = regf & VT_VALMASK;
 
+    int val_type = type_def & VT_BTYPE;
+
+    if (!(val_type == VT_INT ||
+          val_type == VT_SHORT ||
+          val_type == VT_BYTE ||
+          val_type == VT_PTR)) {
+        UNSUPPORTED("unsupported format to load from (%u)", val_type);
+    }
+
     if ((regf & VT_SYM) &&
-        ((regf & VT_LVAL) ||
-        v != VT_CONST))
+        v != VT_CONST)
         UNSUPPORTED("can't load symbol lookups");
 
+    // VT_LVAL means we should read from where VT_CONST points to.
+    // unlike non VT_LVAL where we load the value directl.
     if (regf & VT_LVAL) {
         if (v == VT_LLOCAL) {
             // Definitely not sure if this is correct. Stolen from x86 and C67
@@ -615,7 +640,18 @@ ST_FUNC void load(int r, SValue *sv)
         if (v == VT_LLOCAL) {
             UNSUPPORTED("double VT_LLOCAL HUH?");
         } else if (v == VT_CONST) {
-            UNSUPPORTED("loading from VT_LVAL not supported (v == VT_CONST)");
+
+            if (regf & VT_SYM) {
+
+                // SET r, [label + addr]
+
+                emit_read_symbol_ref(vtop->sym, addr, r, 0);
+
+            } else {
+                UNSUPPORTED("loading from VT_LVAL not supported (v == VT_CONST, no sym)");
+            }
+
+            return;
         } else if (v == VT_CMP) {
             UNSUPPORTED("loading from VT_LVAL not supported (v == VT_CMP)");
         } else if (v == VT_JMP) {
@@ -625,15 +661,6 @@ ST_FUNC void load(int r, SValue *sv)
         } else if (v < VT_CONST) {
             // SET r, [v]
             pure_indirect = true;
-        }
-
-        int val_type = type_def & VT_TYPE;
-
-        if (!(val_type == VT_INT || val_type == (VT_INT | VT_UNSIGNED) ||
-              val_type == VT_SHORT || val_type == (VT_SHORT | VT_UNSIGNED) ||
-              val_type == VT_BYTE || val_type == (VT_BYTE | VT_UNSIGNED) ||
-              val_type == VT_PTR)) {
-            UNSUPPORTED("unsupported format to load from (%u)", val_type);
         }
 
         if (pure_indirect) {
